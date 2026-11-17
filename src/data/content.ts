@@ -90,10 +90,28 @@ export const journey: { year: string; text: string }[] = [
   { year: '2026', text: 'Built personal web development and AI-related projects.' },
 ];
 
-export const education = {
-  university: 'Newton School of Technology',
-  affiliation: 'Rishihood University',
-  degree: 'B.Tech — Computer Science & Artificial Intelligence',
-  years: '2026–2030',
-  detail: 'First-year undergraduate · Patna, Bihar, India',
+export type EducationItem = {
+  institution: string;
+  affiliation?: string;
+  degree: string;
+  years: string;
+  detail: string;
 };
+
+export const educationList: EducationItem[] = [
+  {
+    institution: 'Newton School of Technology',
+    affiliation: 'Rishihood University',
+    degree: 'B.Tech — Computer Science & Artificial Intelligence',
+    years: '2026–2030',
+    detail: 'First-year undergraduate · Sonipat, Haryana, India',
+  },
+  {
+    institution: 'Moral Development School',
+    degree: 'Class XII — Higher Secondary',
+    years: '2024–2026',
+    detail: 'Patna, Bihar, India',
+  },
+];
+
+export const education = educationList[0];

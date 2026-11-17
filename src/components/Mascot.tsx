@@ -57,17 +57,17 @@ export function Mascot({ ready }: Props) {
     };
   }, []);
 
-  // Scroll parallax: the mascot drifts slower than the page over the first screens.
+  // Scroll parallax: desktop and fine pointers only.
   useEffect(() => {
     const el = rootRef.current;
-    if (!el || prefersReducedMotion()) return;
+    if (!el || !hasFinePointer() || window.innerWidth <= 860 || prefersReducedMotion()) return;
     const st = ScrollTrigger.create({
       trigger: document.body,
       start: 'top top',
       end: '+=900',
       scrub: true,
       onUpdate: (self) => {
-        gsap.set(el, { y: -self.progress * 120 });
+        gsap.set(el, { y: -self.progress * 80 });
       },
     });
     return () => {

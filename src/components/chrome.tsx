@@ -118,6 +118,7 @@ const NAV = [
   { id: 'skills', label: 'Skills' },
   { id: 'projects', label: 'Projects' },
   { id: 'journey', label: 'Journey' },
+  { id: 'education', label: 'Education' },
   { id: 'contact', label: 'Contact' },
 ];
 
@@ -125,6 +126,22 @@ export function Nav() {
   const [active, setActive] = useState('top');
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    const onResize = () => {
+      if (window.innerWidth > 860) setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [open]);
 
   useEffect(() => {
     const ids = NAV.map((n) => n.id).filter((id) => id !== 'top');

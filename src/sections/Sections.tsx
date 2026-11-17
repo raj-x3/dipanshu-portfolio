@@ -9,6 +9,7 @@ import {
   projects,
   journey,
   education,
+  educationList,
   type SkillIcon,
   type Project,
 } from '../data/content';
@@ -320,18 +321,24 @@ export function Education() {
       <Reveal>
         <p className="kicker">05 — Education</p>
       </Reveal>
-      <Reveal delay={60}>
-        <div className="edu-card">
-          <p className="edu-years">{education.years}</p>
-          <h3 id="education-title">{education.university}</h3>
-          <p className="edu-affiliation">{education.affiliation}</p>
-          <p>
-            {education.degree}
-            <br />
-            {education.detail}
-          </p>
-        </div>
-      </Reveal>
+      <div className="edu-list">
+        {educationList.map((item, i) => (
+          <Reveal key={item.institution} delay={60 * (i + 1)}>
+            <div className="edu-card">
+              <p className="edu-years">{item.years}</p>
+              <div className="edu-body">
+                <h3 id={i === 0 ? 'education-title' : undefined}>{item.institution}</h3>
+                {item.affiliation && <p className="edu-affiliation">{item.affiliation}</p>}
+                <p>
+                  {item.degree}
+                  <br />
+                  {item.detail}
+                </p>
+              </div>
+            </div>
+          </Reveal>
+        ))}
+      </div>
     </section>
   );
 }
