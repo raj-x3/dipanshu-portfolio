@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
@@ -27,10 +27,7 @@ const HINGE = new THREE.Vector3(0, TB / 2, -D / 2);
 const CLOSED_ANGLE = Math.PI / 2; // lid lies flat over the keyboard
 const OPEN_ANGLE = -0.36; // ≈110° between lid and base
 
-const CAM_START = new THREE.Vector3(3.1, 2.4, 4.4); // three-quarter product shot
-const LAPTOP_CENTER = new THREE.Vector3(0, 0.5, 0);
-const FRONT_DIST = 4.8; // straight-on view of the display
-const ENTER_DIST = 2.2; // camera passes into the display; terminal fills the frame
+const BASE_FRONT_DIST = 4.8; // straight-on view of the display (desktop baseline)
 
 const KEY_ROWS = [14, 14, 13, 13, 7];
 const KEY_PITCH_X = 0.19;
@@ -168,7 +165,7 @@ function createGlowTexture(): THREE.CanvasTexture {
 }
 
 function Experience({ particleCount }: { particleCount: number }) {
-  const { gl, scene, camera } = useThree();
+  const { gl, scene, camera, size } = useThree();
 
   const lidRef = useRef<THREE.Group>(null!);
   const anchorRef = useRef<THREE.Object3D>(null!);
@@ -231,10 +228,40 @@ function Experience({ particleCount }: { particleCount: number }) {
       front: new THREE.Vector3(),
       camPos: new THREE.Vector3(),
       camTarget: new THREE.Vector3(),
+      startPos: new THREE.Vector3(),
+      startTarget: new THREE.Vector3(),
     }),
     [],
   );
   const state = useRef({ open: 0, zoom: 0, typed: 0 });
+
+  // Calculate responsive camera parameters based on viewport aspect ratio.
+  // Adapts seamlessly to narrow mobile portrait, tablets, and wide desktop displays.
+  useLayoutEffect(() => {
+    const aspect = size.width / Math.max(size.height, 1);
+    const tAspect = THREE.MathUtils.clamp((aspect - 0.5) / 0.7, 0, 1);
+    const targetFov = THREE.MathUtils.lerp(40, 35, tAspect);
+    const pCam = camera as THREE.PerspectiveCamera;
+    pCam.fov = targetFov;
+    pCam.updateProjectionMatrix();
+
+    const targetWidthFraction = THREE.MathUtils.lerp(0.82, 0.65, tAspect);
+    const targetVisibleWidth = W / targetWidthFraction;
+    const radHalfFov = (pCam.fov * Math.PI) / 360;
+    const tanHalfFov = Math.tan(radHalfFov);
+    const frontDist = Math.max(BASE_FRONT_DIST, targetVisibleWidth / (2 * tanHalfFov * aspect));
+    const distRatio = frontDist / BASE_FRONT_DIST;
+
+    const startX = THREE.MathUtils.lerp(1.5 * distRatio, 3.1, tAspect);
+    const startY = THREE.MathUtils.lerp(2.2 * distRatio, 2.4, tAspect);
+    const startZ = THREE.MathUtils.lerp(4.4 * distRatio, 4.4, tAspect);
+    const startTargetY = THREE.MathUtils.lerp(0.35, 0.5, tAspect);
+
+    scratch.startPos.set(startX, startY, startZ);
+    scratch.startTarget.set(0, startTargetY, 0);
+    camera.position.copy(scratch.startPos);
+    camera.lookAt(scratch.startTarget);
+  }, [camera, size, scratch]);
 
   useFrame((frame, delta) => {
     const dt = Math.min(delta, 1 / 20);
@@ -256,11 +283,38 @@ function Experience({ particleCount }: { particleCount: number }) {
     anchorRef.current.getWorldQuaternion(scratch.quat);
     scratch.normal.set(0, 0, 1).applyQuaternion(scratch.quat);
 
+    // Dynamic viewport calculations for responsive vertical & horizontal alignment
+    const aspect = size.width / Math.max(size.height, 1);
+    const tAspect = THREE.MathUtils.clamp((aspect - 0.5) / 0.7, 0, 1);
+    const targetFov = THREE.MathUtils.lerp(40, 35, tAspect);
+    const pCam = camera as THREE.PerspectiveCamera;
+    if (Math.abs(pCam.fov - targetFov) > 0.05) {
+      pCam.fov = targetFov;
+      pCam.updateProjectionMatrix();
+    }
+
+    const targetWidthFraction = THREE.MathUtils.lerp(0.82, 0.65, tAspect);
+    const targetVisibleWidth = W / targetWidthFraction;
+    const radHalfFov = (pCam.fov * Math.PI) / 360;
+    const tanHalfFov = Math.tan(radHalfFov);
+
+    const frontDist = Math.max(BASE_FRONT_DIST, targetVisibleWidth / (2 * tanHalfFov * aspect));
+    const enterDist = Math.max(2.2, frontDist * THREE.MathUtils.lerp(0.36, 0.458, tAspect));
+
+    const distRatio = frontDist / BASE_FRONT_DIST;
+    const startX = THREE.MathUtils.lerp(1.5 * distRatio, 3.1, tAspect);
+    const startY = THREE.MathUtils.lerp(2.2 * distRatio, 2.4, tAspect);
+    const startZ = THREE.MathUtils.lerp(4.4 * distRatio, 4.4, tAspect);
+    scratch.startPos.set(startX, startY, startZ);
+
+    const startTargetY = THREE.MathUtils.lerp(0.35, 0.5, tAspect);
+    scratch.startTarget.set(0, startTargetY, 0);
+
     // Camera: 3/4 product shot → straight-on to the display → into it.
-    const dist = THREE.MathUtils.lerp(FRONT_DIST, ENTER_DIST, easeInOutCubic(s.zoom));
+    const dist = THREE.MathUtils.lerp(frontDist, enterDist, easeInOutCubic(s.zoom));
     scratch.front.copy(scratch.screen).addScaledVector(scratch.normal, dist);
-    scratch.camPos.lerpVectors(CAM_START, scratch.front, eo);
-    scratch.camTarget.lerpVectors(LAPTOP_CENTER, scratch.screen, eo);
+    scratch.camPos.lerpVectors(scratch.startPos, scratch.front, eo);
+    scratch.camTarget.lerpVectors(scratch.startTarget, scratch.screen, eo);
     camera.position.copy(scratch.camPos);
     camera.lookAt(scratch.camTarget);
 
